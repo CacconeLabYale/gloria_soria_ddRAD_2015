@@ -25,7 +25,7 @@ setup(
     version="0.1.0",
     license="MIT",
     description="Code supporting the Gloria-Soria et al 2015 paper on tsetse population genomics using ddRAD seq.",
-    long_description="%s\n%s" % (read("README."), re.sub(":obj:`~?(.*?)`", r"``\1``", read("CHANGELOG.rst"))),
+    long_description="%s\n%s" % (read("README.rst"), re.sub(":obj:`~?(.*?)`", r"``\1``", read("CHANGELOG.rst"))),
     author="Gus Dunn",
     author_email="wadunn83@gmail.com",
     url="https://github.com/CacconeLabYale/gloria_soria_ddRAD_2015",
