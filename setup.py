@@ -57,13 +57,15 @@ setup(
     ],
     install_requires=[
         # eg: "aspectlib==1.1.1", "six>=1.7",
+        'click',
     ],
     extras_require={
         # eg: "rst": ["docutils>=0.11"],
     },
     entry_points={
         "console_scripts": [
-            "gs_ddRAD2015 = gs_ddRAD2015.__main__:main"
+            "process_my_ld = gs_ddRAD2015.scripts.vcftools_table_to_pandas_pickle:process_my_ld",
+            "test_the_opts = gs_ddRAD2015.scripts.test:test"
         ]
     },
 )
