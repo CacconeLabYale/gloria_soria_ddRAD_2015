@@ -116,7 +116,7 @@ class Figures(object):
     def __init__(self, out_dir, formats, save_plots=False, extras=False):
         self.save_plots = save_plots
         self.extras = extras
-        self.base_dir = out_dirgitzp
+        self.base_dir = out_dir
         self.formats = formats
         self.d = munch.Munch()
         self.runners = self._get_runners()
