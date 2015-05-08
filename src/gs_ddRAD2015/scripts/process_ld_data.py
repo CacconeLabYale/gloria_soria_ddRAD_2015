@@ -32,24 +32,24 @@ import ipdb
 
 # this is the command function
 
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
-@click.command(context_settings=CONTEXT_SETTINGS)
-@click.option('--ld-prog',
-    type=click.Choice(['plink','vcftools']),
-    help="Which program was used to generate the LD values?",
-    show_default=True,
-    default='vcftools')
-@click.option('--distance-bin',
-    default=50,
-    show_default=True,
-    help="How wide do you want the bin window?")
-@click.argument('ld_path',
-    type=click.Path(exists=True))
-@click.argument('out_path',
-    type=click.Path())
-def process_my_ld(ld_path, out_path, ld_prog, distance_bin):
+
+# @click.command(context_settings=CONTEXT_SETTINGS)
+# @click.option('--ld-prog',
+#     type=click.Choice(['plink','vcftools']),
+#     help="Which program was used to generate the LD values?",
+#     show_default=True,
+#     default='vcftools')
+# @click.option('--distance-bin',
+#     default=50,
+#     show_default=True,
+#     help="How wide do you want the bin window?")
+# @click.argument('ld_path',
+#     type=click.Path(exists=True))
+# @click.argument('out_path',
+#     type=click.Path())
+def run(ld_path, out_path, ld_prog, distance_bin):
     """
     ld_path = "Path to the table file created by the LD calculation program."
     out_path = "Path to where you want to save the results pickle."
@@ -98,7 +98,7 @@ def yield_models(dataframe):
         assert isinstance(bin_id, int)
 
 
-        # get our distance binned r^2 data in a nice dataframe
+        # get our distance binned r^2 d in a nice dataframe
         # then drop any rows with R2 == NANs
         data = dataframe.query("(distance_bin == {bin_id})".format(bin_id=bin_id))
 
@@ -116,7 +116,7 @@ def yield_models(dataframe):
         alpha_of_beta = mc.Uniform(alpha_name, 0.01, 10)
         beta_of_beta = mc.Uniform(beta_name, 0.01, 10)
 
-        # set the data
+        # set the d
         try:
             r2_distribution_beta = mc.Beta(name=r2_dist_name,
                                            alpha=alpha_of_beta,
@@ -206,4 +206,4 @@ def record_parameters_and_probabilities(df, model):
 
 
 if __name__ == '__main__':
-    process_my_ld()
+    run()

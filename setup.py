@@ -64,8 +64,8 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "process_my_ld = gs_ddRAD2015.scripts.vcftools_table_to_pandas_pickle:process_my_ld",
-            "test_the_opts = gs_ddRAD2015.scripts.test:test"
+            "gs_ddRAD2015 = gs_ddRAD2015.scripts.main:cli",
+
         ]
     },
 )

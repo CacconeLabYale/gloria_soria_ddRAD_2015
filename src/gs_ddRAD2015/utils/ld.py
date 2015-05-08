@@ -26,7 +26,7 @@
 # - [First thoughts and notes about first thoughts](#First-thoughts-and-notes-about-first-thoughts:)
 # 
 # 
-# - [Generate functions to simulate data from the types of distributions we will be using](#Generate-functions-to-simulate-data-from-the-types-of-distributions-we-will-be-using:)
+# - [Generate functions to simulate d from the types of distributions we will be using](#Generate-functions-to-simulate-d-from-the-types-of-distributions-we-will-be-using:)
 # 
 # 
 # - [Build models for learning the distribution parameters](#Build-models-for-learning-the-distribution-parameters)  
@@ -83,7 +83,7 @@ sns.set_style("whitegrid")
 # In[84]:
 
 # define paths to files
-ld_table = "/home/gus/remote_mounts/louise/data/genomes/glossina_fuscipes/annotations/SNPs/plink_out/tsetseFINAL_14Oct2014_f2_53.recode.renamed_scaffolds.maf0_05.vcf/ld/r_none_freqs_dprime.ld"
+ld_table = "/home/gus/remote_mounts/louise/d/genomes/glossina_fuscipes/annotations/SNPs/plink_out/tsetseFINAL_14Oct2014_f2_53.recode.renamed_scaffolds.maf0_05.vcf/ld/r_none_freqs_dprime.ld"
 out_pickle="/home/gus/Documents/YalePostDoc/project_stuff/g_f_fucipes_uganda/ddrad58/ld_thresholds/post_MAP_calc.plk"
 
 
@@ -205,7 +205,7 @@ ld['BP_DELTA'] = abs(ld.BP_A - ld.BP_B)
 
 # In[10]:
 
-# quick preview of data
+# quick preview of d
 ld.head()
 
 
@@ -280,19 +280,19 @@ plt.title("Distribution of SNP-pair distances");
 
 # # First-thoughts and notes about first-thoughts:
 # 
-# Where these data approximatly normal-looking one might use a z-score or modified z-score (_median absolute devation_ instead of std-dev) to set a semi-principled threshold for a value being considered "interesting".  But these are __not__ even a little "Normal" looking.
+# Where these d approximatly normal-looking one might use a z-score or modified z-score (_median absolute devation_ instead of std-dev) to set a semi-principled threshold for a value being considered "interesting".  But these are __not__ even a little "Normal" looking.
 # 
-# I then thought about using an Exponential distribution to model them but it can not accommodate the types of data we observe in the shorter distances which have concentrations at the high-end of the $r^2$ spectrum as well.  This may not be a big deal in practice, however?  The fact that the support for the Exponential distribution is $[0,\inf)$ while our data __can only__ occur over $[0,1]$ does bother me a bit though.
+# I then thought about using an Exponential distribution to model them but it can not accommodate the types of d we observe in the shorter distances which have concentrations at the high-end of the $r^2$ spectrum as well.  This may not be a big deal in practice, however?  The fact that the support for the Exponential distribution is $[0,\inf)$ while our d __can only__ occur over $[0,1]$ does bother me a bit though.
 # 
 # This has led me to the Beta distribution, which in its 2 parameter formulation ($\mathrm{Beta}(\alpha, \beta)$) only supports values over $(0,1)$.  However in a four parameter formulation ($\mathrm{Beta}(\alpha, \beta, a, c)$) accommodates values along $[a,c]$ by scaling linearly $[a,c]$ to within the Beta's normal support interval.
 # 
-# Below, I will go through what I have done to explore these distributions with our data.
+# Below, I will go through what I have done to explore these distributions with our d.
 
 # ----
-# # Generate functions to simulate data from the types of distributions we will be using:
+# # Generate functions to simulate d from the types of distributions we will be using:
 # 
 
-# ## Simulate Beta dist/data:
+# ## Simulate Beta dist/d:
 
 # In[21]:
 
@@ -361,7 +361,7 @@ plt.ylim(0,3);
 # 
 # # Build models for learning the distribution parameters
 
-# ### Scale $r^2$ data to avoid `0`s and `1`s
+# ### Scale $r^2$ d to avoid `0`s and `1`s
 
 # In[24]:
 
@@ -521,7 +521,7 @@ def yield_models(dataframe):
         
         assert isinstance(bin_id, int)
         
-        # get our distance binned r^2 data in a nice dataframe
+        # get our distance binned r^2 d in a nice dataframe
         data = dataframe.query("(distance_bin == {bin_id})".format(bin_id=bin_id))
 
         # generate names for stocastics
@@ -533,7 +533,7 @@ def yield_models(dataframe):
         alpha_of_beta  = mc.Uniform(alpha_name,0.01,10)
         beta_of_beta = mc.Uniform(beta_name,0.01,10)
 
-        # set the data
+        # set the d
         r2_distribution_beta = mc.Beta(name=r2_dist_name,
                                        alpha=alpha_of_beta,
                                        beta=beta_of_beta,

@@ -1,554 +1,542 @@
+import ipdb
 
-# coding: utf-8
 
-# # Purpose:
-# 
-# 2015-03-13 (Friday)
-# 
-# Explore and characterize the results of the learned Beta filter method.
 
-# # Contents
-# [Loading-files](#Loading-files)
-# 
-# [Filtering-Stats](#Filtering-Stats)
-# 
-# [Characterization-of-contigs-with/without-regard-to-selected-SNP-pairs](#Characterization-of-contigs-with/without-regard-to-selected-SNP-pairs)
-# - [All-contigs](#All-contigs)
-# - [All-SNP-pair-contigs](#All-SNP-pair-contigs)
-# - [LD-filtered-SNP-pair-contigs](#LD-filtered-SNP-pair-contigs)
-# 
-# [Compare-with-Tajima's-D-results-from-AndreaG](#Compare-with-Tajima's-D-results-from-AndreaG)
-# - [Examine-ld_contig_taj_win_filter](#Examine-ld_contig_taj_win_filter)
-# - [Basic-summary-table-referencing-SNP-pairs](#Basic-summary-table-referencing-SNP-pairs)
-# - [How-is-q-value-related-to-SNP-pair-distance?](#How-is-q-value-related-to-SNP-pair-distance?)
-# - [What-is-the-distribution-of-SNPs-per-bin-used-for-Tajima's-D-bin_50](#What-is-the-distribution-of-SNPs-per-bin-used-for-Tajima's-D-bin_50)
-# - [How-Tajima's-D-score-bin_50-relate-to-number-of-SNPs-in-the-bin](#How-Tajima's-D-score-bin_50-relate-to-number-of-SNPs-in-the-bin)
-# 
-# [Average-LD-per-bin](#Average-LD-per-bin)
-# - [All-contigs-together](#All-contigs-together)
-# - [5-random-contigs](#5-random-contigs)
-# - 
+import inspect
 
-# ## Imports:
-
-# In[3]:
-
-import datetime as dt
-
+import collections
+import os
 import matplotlib.pyplot as plt
+import munch
 import seaborn as sns
 import ggplot as gp
 
-
-import numpy as np
 import pandas as pd
+
 pd.set_option('display.max_columns', 60)
-# import tables as h5
-
-import itertools as it
-from collections import defaultdict
 
 import numpy as np
-import pandas as pd
-import scipy
-from scikits import bootstrap as bs
-import statsmodels.api as sm
-import statsmodels.stats.multitest as smm
 
-import munch
 
-import pymc as mc
+def run(ld_pickle, out_dir, formats, contig_length):
+    """
+    Takes processed LD d in form of a python pickle and produces figures.
 
-from spartan.utils.genome_specific.GfusI1 import GfusI1_0
-from spartan.utils.fastas import ParseFastA
+    Args:
+        ld_pickle (str): path to pickle file.
+        out_dir (str): path to directory where the figures should go.
+        formats (list): one or more of ['png','svg','pdf','none'].
+        contig_length (str): path to csv file with two labeled columns: ['scaf_name','length'].
 
+    Returns:
+        None
+    """
 
-# In[4]:
+    figs = Figures(out_dir, formats, extras=False)
 
-# set figure characteristics
 
-# size
-sns.set_context("talk")
 
-# style
-sns.set_style("whitegrid")
+    # style
+    sns.set_context("talk")
+    sns.set_style("whitegrid")
 
-# ## File paths:
+    # # Loading files
+    # load our results tables
+    figs.d.ld = ld = pd.read_pickle(ld_pickle)
 
-# In[5]:
+    figs.d.contig_info = contig_info = pd.read_csv(contig_length)
 
-# define paths to files
+    # join contig length and contig info to the LD table
+    figs.d.ld_contig = ld_contig = pd.merge(left=ld, right=contig_info, how='inner', left_on="CHR_A", right_on="scaf_name")
 
-base_out_dir = "/home/gus/Documents/YalePostDoc/project_stuff/g_f_fucipes_uganda/ddrad58/manuscript/figures/ld"
+    # list all contigs that had at least one Snp-pair
+    figs.d.sp_contigs = sp_contigs = contig_info[contig_info.scaf_name.isin(ld_contig.scaf_name.unique())]
 
-contig_name_length_path = "/home/gus/Dropbox/uganda_data/data_repos/genome_info/assembly_info/contig_name_length.csv"
+    ipdb.set_trace()
+    # get list of distance_bins
+    d_bins = ld_contig.distance_bin.unique()
+    d_bins.sort()
+    figs.d.d_bins = d_bins
 
-ld_results_pickle="/home/gus/Documents/YalePostDoc/project_stuff/g_f_fucipes_uganda/ddrad58/ld_thresholds/post_MAP_calc.plk"
-tajimas_csv = "/home/gus/Documents/YalePostDoc/project_stuff/g_f_fucipes_uganda/ddrad58/data_from_andrea/Tajima50.csv"
+    # Generate a dict to map how many contigs avail to each bin
+    contigs_per_bin = self.get_contigs_per_bin(d_bins, contig_info)
+    contigs_per_bin = pd.DataFrame(contigs_per_bin, columns=['contigs_per_bin'])
+    figs.d.contigs_per_bin = contigs_per_bin = contigs_per_bin.reset_index().rename(columns={'index': 'distance_bin'}, inplace=False)
 
+    figs.d.mean_bin_r2_all = mean_bin_r2_all = ld_contig.groupby("distance_bin").mean().reset_index()
+    # median_bin_r2_all = ld_contig.groupby("distance_bin").median().reset_index()
 
+    ##############################################
+    ipdb.set_trace()
 
-# # Helper functions
+    len_contigs_per_bin = ld_contig.pivot_table(index=['distance_bin'],
+                                                values=['scaf_name'],
+                                                aggfunc=[len]
+                                                )['len'].reset_index()
 
-###########################
+    figs.d.len_contigs_per_bin = len_contigs_per_bin = len_contigs_per_bin.rename(columns={'scaf_name': 'SNP-pairs'}, inplace=False)
 
-def recode_taj_chrom(df):
-    recode_func = lambda x: x.split(':')[-1]
+    ###############################################
 
-    CHROM = df.CHROM.apply(recode_func)
-    df.CHROM = CHROM
+    d_bin_v_others = ld_contig.pivot_table(index=['distance_bin'],
+                                           values=['R2', 'one_minus_cdf_BH'],
+                                           aggfunc=[np.mean]
+                                           )['mean'].reset_index()
 
+    figs.d.d_bin_v_others = d_bin_v_others = d_bin_v_others.merge(right=len_contigs_per_bin,
+                                          how='inner',
+                                          on='distance_bin'
+                                          ).merge(right=contigs_per_bin,
+                                                  how='inner',
+                                                  on='distance_bin'
+                                                  )
 
-# # Loading files
+    figs.d.d_bin_v_others_melt = d_bin_v_others_melt = pd.melt(d_bin_v_others, id_vars=['distance_bin'])
 
-# In[10]:
+    #################################################
 
-# load our results tables
-ld = pd.read_pickle(ld_results_pickle)
-ld.head()
+    figs.self.make_figures()
 
+# ######################################################################
 
-# In[11]:
 
-contig_info = pd.read_csv(contig_name_length_path)
-contig_info.head()
 
+# ######################################################################
+# ######################################################################
+# ######################################################################
+# ######################################################################
+# ######################################################################
+# ######################################################################
 
-# In[12]:
 
-taj50 = pd.read_csv(tajimas_csv, sep='\t')
-taj50.head()
 
 
-# In[13]:
+class Figures(object):
 
-recode_taj_chrom(taj50)
-taj50.head()
+    def __init__(self, out_dir, formats, save_plots=False, extras=False):
+        self.save_plots = save_plots
+        self.extras = extras
+        self.base_dir = out_dirgitzp
+        self.formats = formats
+        self.d = munch.Munch()
+        self.runners = self._get_runners()
 
+    def save_figs(self, base_dir, fname, save_types, is_ggplot=False):
+        assert isinstance(base_dir, str)
+        assert isinstance(fname, str)
+        assert isinstance(save_types, collections.Iterable)
+        assert (is_ggplot is False) or isinstance(is_ggplot, gp.ggplot)
 
-# # Filtering Stats
+        if not self.save_plots:
+            print "WARNING: 'save_plots' set to False."
+            return None
 
-# ## SNP-pairs in all bins at BH corrected $p \leq 0.01$
+        path = "{pth}.{{ext}}".format(pth=os.path.join(base_dir, fname))
 
-# In[14]:
+        for t in save_types:
 
-sum(ld.one_minus_cdf_BH <= 0.01)
+            if is_ggplot:
+                gp.ggsave(path.format(ext=t), plot=is_ggplot)
+            else:
+                plt.savefig(path.format(ext=t), bbox_inches='tight')
+                print "Saved {0}.".format(path.format(ext=t))
 
+    def plot_bin_dists(self, df, bin_def="distance_bin <= 500"):
+        g = sns.FacetGrid(data=df.query(bin_def),
+                          col="distance_bin",
+                          sharey=False,
+                          sharex=False,
+                          col_wrap=4,
+                          )
 
-# ## SNP-pairs in all bins at BH corrected $p \le 0.05$
+        return g.map(plt.hist, "R2", color="coral")
 
-# In[15]:
+    def get_contigs_per_bin(self, d_bins, contig_info):
+        cpb = {}
 
-sum(ld.one_minus_cdf_BH <= 0.05)
+        for b in d_bins:
+            cpb[b] = sum(contig_info.length > b)
 
+        return pd.Series(cpb)
 
-# ## Lowest $r^2$ retained at  $p \le 0.05$ or $0.01$
+    def plot_scat_w_line(self, gp_aes):
+        return gp_aes + gp.geom_point(color='coral') + gp.stat_smooth(span=.2, color='blue',
+                                                                      se=False) + gp.theme_seaborn(
+            context='talk')
 
-# In[16]:
+    def make_figures(self):
 
-q_05 = ld.query("one_minus_cdf_BH <= 0.05")
-q_05.R2.min()
+        for name, runner in self.runners:
+            if not self.extras:
+                if name != 'display_extras':
+                    runner()
+            else:
+                runner()
 
+    def _get_runners(self):
+        runners = inspect.getmembers(self, lambda x: inspect.ismethod(x))
 
-# In[17]:
+        return runners
 
-q_01 = ld.query("one_minus_cdf_BH <= 0.01")
-q_01.R2.min()
+    # ########## Figure  ##########
+    def distance_bins_0_500(self):
+        fname = "distance_bins_0_500"
 
+        p = self.plot_bin_dists(ld, bin_def="distance_bin <= 500")
 
-# ## How many SNP-pairs have  $r^2 \ge 0.82$?
+        p
 
-# In[18]:
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=False
+                  )
 
-sum(ld.R2 >= 0.82)
+    # ########## Figure  ##########
+    def distance_bins_7000_7500(self):
+        fname = "distance_bins_7000_7500"
 
+        p = self.plot_bin_dists(ld, bin_def="7000 <= distance_bin <= 7500")
 
-# In[19]:
+        print p
 
-1-(5284.0/26495)
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=False
+                  )
 
+    # ########## Figure  ##########
+    def distance_bins_15000_15500(self):
+        fname = "distance_bins_15000_15500"
 
-# ## Characterization of contigs with/without regard to selected SNP-pairs
+        p = self.plot_bin_dists(ld, bin_def="15000 <= distance_bin <= 15500")
 
-# In[20]:
+        print p
 
-# join contig length and kk_name contig info to the LD table
-ld_contig = pd.merge(left=ld, right=contig_info, how='inner', left_on="CHR_A", right_on="scaf_name")
-ld_contig.head()
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=False
+                  )
 
+    # ########## Figure  ##########
+    def distance_bins_30000_30500(self):
+        fname = "distance_bins_30000_30500"
 
-# ### All contigs
+        p = self.plot_bin_dists(ld, bin_def="30000 <= distance_bin <= 30500")
 
-# In[21]:
+        print p
 
-sns.distplot(contig_info.length, color="coral", kde=0);
-median_contig_len = contig_info.length.median()
-mean_contig_len = contig_info.length.mean()
-plt.text(median_contig_len,400,"*median length = {}".format(median_contig_len), fontsize=14);
-plt.text(mean_contig_len,200,"*mean length = {}".format(mean_contig_len), fontsize=14);
-plt.text(mean_contig_len,800,"Number of contigs = {}".format(len(contig_info)), fontsize=14);
-plt.title("All contigs");
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=False
+                  )
 
+    # ########## Figure  ##########
+    def distance_bins_50000_50500(self):
+        fname = "distance_bins_50000_50500"
 
-# ### All SNP-pair contigs
+        p = self.plot_bin_dists(ld, bin_def="50000 <= distance_bin <= 50500")
 
-# In[22]:
+        print p
 
-sp_contigs = contig_info[contig_info.scaf_name.isin(ld_contig.scaf_name.unique())]
-len(sp_contigs)
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=False
+                  )
 
+    # ########## Figure  ##########
+    def distance_bins_70000_70500(self):
+        fname = "distance_bins_70000_70500"
 
-# In[23]:
+        p = self.plot_bin_dists(ld, bin_def="70000 <= distance_bin <= 70500")
 
-sns.distplot(sp_contigs.length, color="coral", kde=0);
-sp_median_contig_len = sp_contigs.length.median()
-sp_mean_contig_len = sp_contigs.length.mean()
-plt.text(sp_median_contig_len,100,"*median length = {}".format(sp_median_contig_len), fontsize=14);
-plt.text(sp_mean_contig_len,50,"*mean length = {}".format(sp_mean_contig_len), fontsize=14);
-plt.text(sp_mean_contig_len,200,"Number of contigs = {}".format(len(sp_contigs)), fontsize=14);
-plt.title("Contigs with a SNP-pair");
+        print p
 
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=False
+                  )
 
-# ### LD filtered SNP-pair contigs
+    # ########## Figure  ##########
+    def distance_bins_100000_100500(self):
+        fname = "distance_bins_100000_100500"
 
-# In[24]:
+        p = self.plot_bin_dists(ld, bin_def="100000 <= distance_bin <= 100500")
 
-ld_filt_contigs = ld_contig.query("one_minus_cdf_BH <= 0.01")
-ld_filt_contigs = contig_info[contig_info.scaf_name.isin(ld_filt_contigs.scaf_name.unique())]
-len(ld_filt_contigs)
+        print p
 
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=False
+                  )
 
-# In[25]:
+    # ########## Figure  ##########
+    def all_contig_len_dist(self):
+        fname = "all_contig_len_dist"
 
-sns.distplot(ld_filt_contigs.length, color="coral", kde=0);
-ld_filt_median_contig_len = ld_filt_contigs.length.median()
-ld_filt_mean_contig_len = ld_filt_contigs.length.mean()
-plt.text(ld_filt_median_contig_len, 40, "*median length = {}".format(ld_filt_median_contig_len), fontsize=14);
-plt.text(ld_filt_mean_contig_len, 20, "*mean length = {}".format(ld_filt_mean_contig_len), fontsize=14);
-plt.text(ld_filt_mean_contig_len ,80, "Number of contigs = {}".format(len(ld_filt_contigs)), fontsize=14);
-plt.title(r"Contigs with a SNP-pair filtered by binned LD ($q \leq 0.01$)");
+        sns.distplot(contig_info.length, color="coral", kde=0);
+        median_contig_len = contig_info.length.median()
+        mean_contig_len = contig_info.length.mean()
+        plt.text(median_contig_len, 400, "*median length = {}".format(median_contig_len), fontsize=14);
+        plt.text(mean_contig_len, 200, "*mean length = {}".format(mean_contig_len), fontsize=14);
+        plt.text(mean_contig_len, 800, "Number of contigs = {}".format(len(contig_info)), fontsize=14);
+        plt.title("All contigs");
 
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=('png', 'pdf', 'svg')
+                  )
 
-# ## Compare with Tajima's D results from AndreaG
+    # ### All SNP-pair contigs
+    # ########## Figure  ##########
+    def all_sp_contig_len_dist(self):
+        ipdb.set_trace()
+        fname = "all_sp_contig_len_dist"
 
-# In[26]:
+        sns.distplot(sp_contigs.length, color="coral", kde=0);
+        sp_median_contig_len = sp_contigs.length.median()
+        sp_mean_contig_len = sp_contigs.length.mean()
+        plt.text(sp_median_contig_len, 100, "*median length = {}".format(sp_median_contig_len), fontsize=14);
+        plt.text(sp_mean_contig_len, 50, "*mean length = {}".format(sp_mean_contig_len), fontsize=14);
+        plt.text(sp_mean_contig_len, 200, "Number of contigs = {}".format(len(sp_contigs)), fontsize=14);
+        plt.title("Contigs with a SNP-pair");
 
-taj50.head()
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=('png', 'pdf', 'svg')
+                  )
 
+    # ########## Figure  ##########
+    def distance_VS_contigs_per_bin(self):
+        fname = "distance_VS_contigs_per_bin"
 
-# In[27]:
+        p = self.plot_scat_w_line(gp.ggplot(gp.aes(x='distance_bin', y='contigs_per_bin'), data=contigs_per_bin))
 
-ld_contig.head()
+        print p
 
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=p
+                  )
 
-# ### To accomplish
-# Need to filter out `ld_contig` data that has either SNP ocurring in the bins defined by `taj50.CHROM:taj50.BIN_start-[taj50.BIN_start+50]`
-# 
-# First try:
-# 
-# - join INNER `ld_contig` and `taj50` on `left_on=kk_name`, `right_on=CHROM` as `ld_contig_taj`
-# - reatain those rows where `ld_contig_taj.BP_A` or `ld_contig_taj.BP_B` is inside `ld_contig_taj.BIN_start` - `ld_contig_taj.BIN_start+50`
+    # ## All contigs together
 
-# In[28]:
 
-ld_contig_taj = pd.merge(left=ld_contig, right=taj50, how='inner', left_on='kk_name', right_on='CHROM')
+    # ########## Figure  ##########
+    def distance_VS_r2_all(self):
+        ipdb.set_trace()
+        fname = "distance_VS_r2_all"
 
+        p = self.plot_scat_w_line(
+            gp.ggplot(gp.aes(x='distance_bin', y='R2'), data=mean_bin_r2_all.query("distance_bin >= 0")))
 
-# In[29]:
+        print p
 
-def get_taj_win_mask(df):
-    taj_win_start = df.BIN_start
-    taj_win_end = df.BIN_start + 50
-    
-    a_mask = (ld_contig_taj.BIN_start <= ld_contig_taj.BP_A) & (ld_contig_taj.BP_A <= ld_contig_taj.BIN_start + 50)
-    b_mask = (ld_contig_taj.BIN_start <= ld_contig_taj.BP_B) & (ld_contig_taj.BP_B <= ld_contig_taj.BIN_start + 50)
-    
-    return (a_mask | b_mask)
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=p
+                  )
 
-# get all at first
-ld_contig_taj_win = ld_contig_taj[get_taj_win_mask(ld_contig_taj)]
+    # ########## Figure  ##########
+    def distance_VS_r2_le30K(self):
+        fname = "distance_VS_r2_le30K"
 
-# now subset these to only rows that meet the LD bin filter
-ld_contig_taj_win_filter = ld_contig_taj_win.query("one_minus_cdf_BH <= 0.01")
+        p = self.plot_scat_w_line(
+            gp.ggplot(gp.aes(x='distance_bin', y='R2'), data=mean_bin_r2_all.query("distance_bin <= 30000")))
 
+        print p
+
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=p
+                  )
+
+    # ########## Figure  ##########
+    def distance_VS_r2_le40K(self):
+        fname = "distance_VS_r2_le40K"
+
+        p = self.plot_scat_w_line(
+            gp.ggplot(gp.aes(x='distance_bin', y='R2'), data=mean_bin_r2_all.query("distance_bin <= 40000")))
+
+        print p
+
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=p
+                  )
+
+    # ########## Figure  ##########
+    def distance_VS_r2_le50K(self):
+        fname = "distance_VS_r2_le50K"
+
+        p = self.plot_scat_w_line(
+            gp.ggplot(gp.aes(x='distance_bin', y='R2'), data=mean_bin_r2_all.query("distance_bin <= 50000")))
+
+        print p
+
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=p
+                  )
+
+    # ########## Figure  ##########
+    def distance_VS_sp_per_bin_gt100(self):
+        fname = "distance_VS_sp_per_bin_gt100"
+
+        sp_gt100mask = len_contigs_per_bin["SNP-pairs"] > 100
+
+        p = self.plot_scat_w_line(gp.ggplot(gp.aes(x='distance_bin',
+                                              y='SNP-pairs'),
+                                       data=len_contigs_per_bin[sp_gt100mask])
+                             ) + gp.ylab('SNP-pairs per bin')
 
-# In[30]:
+        print p
+
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=p
+                  )
+
+    # ########## Figure  ##########
+    def distance_VS_sp_per_bin_gt150(self):
+        fname = "distance_VS_sp_per_bin_gt150"
 
-print len(ld_contig_taj)
-print len(ld_contig_taj_win)
-print len(ld_contig_taj_win_filter)
+        sp_gt150mask = len_contigs_per_bin["SNP-pairs"] > 150
 
+        p = self.plot_scat_w_line(gp.ggplot(gp.aes(x='distance_bin',
+                                              y='SNP-pairs'),
+                                       data=len_contigs_per_bin[sp_gt150mask])
+                             ) + gp.ylab('SNP-pairs per bin')
+
+        print p
+
+        self.save_figs(base_dir=self.d.base_dir,
+                  fname=fname,
+                  save_types=self.formats,
+                  is_ggplot=p
+                  )
 
-# In[31]:
+    # In[ ]:
+    def distance_VS_avgR2_snpperbin_contigsperbin_q_b_bmin_to_bbmax(self):
+        extents = ((0, 1000),
+                   (0, 3000),
+                   (150, 1000),
+                   (150, 3000),
+                   (150, 10000),
+                   (150, 20000),
+                   (150, 30000),
+                   (150, 40000),
+                   (150, 50000),
+                   (150, 60000),
+                   (150, 70000),
+                   (150, 80000),
+                   (150, 90000),
+                   (150, 100000),)
 
-ld_contig_taj_win_filter.head(15)
+        xmins = (0, 150,)
+        xmaxs = (1000,)
 
+        for xmin, xmax in extents:
+            fname = "distance_VS_avgR2_snpperbin_contigsperbin_q_b{bmin}-to-b{bmax}".format(
+                bmin=xmin,
+                bmax=xmax
+            )
 
-# ## Examine `ld_contig_taj_win_filter` 
+            p = self.plot_scat_w_line(
+                gp.ggplot(
+                    gp.aes(
+                        x='distance_bin', y='value'),
+                    data=d_bin_v_others_melt.query(
+                        "{xmin} <= distance_bin <= {xmax}".format(
+                            xmin=xmin,
+                            xmax=xmax
+                        )
+                    )
+                )
+            ) + \
+                gp.facet_wrap("variable") + \
+                gp.ggtitle(fname)
 
-# ### Basic summary table referencing SNP-pairs
+            print p
 
-# In[32]:
+            self.save_figs(base_dir=self.d.base_dir,
+                      fname=fname,
+                      save_types=self.formats,
+                      is_ggplot=p
+                      )
 
-ld_contig_taj_win_filter_t1 = pd.pivot_table(ld_contig_taj_win_filter,
-                                             index=['scaf_name','BP_A','BP_B','distance_bin'],
-                                             fill_value=0,
-                                            )
-ld_contig_taj_win_filter_t1.head()
+    def display_extras(self):
+        # In[ ]:
 
+        # g = sns.PairGrid(d_bin_v_others.loc[:,["R2", "one_minus_cdf_BH",    "SNP-pairs",   "contigs_per_bin",]])
+        # g.map_upper(plt.scatter)
+        # g.map_lower(sns.kdeplot, cmap="Blues_d")
+        # g.map_diag(sns.kdeplot, lw=3, legend=False)
+        d_bin_vars = d_bin_v_others.loc[:, ["R2", "one_minus_cdf_BH", "SNP-pairs", "contigs_per_bin", ]]
 
-# ### How is q-value related to SNP-pair distance?
+        sns.palplot(sns.cubehelix_palette(8, start=.5, rot=-.75))
 
-# In[33]:
 
-sns.jointplot(x='BP_DELTA',
-              y='one_minus_cdf_BH', 
-              data=ld_contig_taj_win_filter, 
-              kind='reg',
-              color='lightblue',
-              xlim=(0,ld_contig_taj_win_filter.distance_bin.max()),
-              ylim=(0,ld_contig_taj_win_filter.one_minus_cdf_BH.max()));
+        # In[ ]:
 
+        my_cmap = sns.cubehelix_palette(40, start=.5, rot=-.75, as_cmap=True)
+        cc = sns.mpl.colors.ColorConverter()
+        marginal_color = cc.to_rgb(arg=my_cmap.colors[int(255 * 1)])
 
-# ### What is the distribution of SNPs per bin used for Tajima's D bin_50
 
-# In[34]:
+        # In[ ]:
 
-sns.distplot(ld_contig_taj_win_filter.N_SNPs, color='lightblue', kde=0);
+        # sns.jointplot('SNP-pairs','R2',d_bin_vars, kind='kde',
+        #               joint_kws=dict(shade=True,
+        #                              cmap=my_cmap,
+        #                              n_levels=40
+        #                             ),
+        #               marginal_kws=dict(shade=True, color=my_cmap.colors[int(256*0.66)])
+        #              )
 
+        g = sns.JointGrid('SNP-pairs', 'R2', d_bin_vars)
+        g.plot_marginals(sns.distplot, kde=False, color=marginal_color)
+        g.plot_joint(sns.kdeplot, shade=True, cmap=my_cmap, n_levels=40);
 
-# ### How Tajima's D score bin_50 relate to number of SNPs in the bin
 
-# In[35]:
+        # In[ ]:
 
-sns.jointplot(x='N_SNPs',
-              y='TajimaD', 
-              data=ld_contig_taj_win_filter, 
-              kind='reg',
-              color='lightblue',
-             );
+        # sns.jointplot('one_minus_cdf_BH','R2',d_bin_vars, kind='kde',
+        #               joint_kws=dict(shade=True,
+        #                              cmap=my_cmap,
+        #                              n_levels=40
+        #                             ),
+        #               marginal_kws=dict(shade=True, color=my_cmap.colors[int(256*0.66)])
+        #              )
 
+        g = sns.JointGrid('one_minus_cdf_BH', 'R2', d_bin_vars)
+        g.plot_marginals(sns.distplot, kde=False, color=marginal_color)
+        g.plot_joint(sns.kdeplot, shade=True, cmap=my_cmap, n_levels=40, alpha=1);
 
-# # Average LD per bin
 
-# ### How many contigs are available to each distance_bin?
+        # In[ ]:
 
-# In[36]:
+        sns.jointplot('contigs_per_bin', 'SNP-pairs', d_bin_vars, kind='kde',
+                      joint_kws=dict(shade=True,
+                                     cmap=my_cmap,
+                                     n_levels=8
+                                     ),
+                      marginal_kws=dict(shade=True, color=my_cmap.colors[int(256 * 0.66)])
+                      )
 
-def get_contigs_per_bin(d_bins,contig_info):
-    
-    cpb = {}
-    
-    for b in d_bins:
-        cpb[b] = sum(contig_info.length > b)
-        
-    return pd.Series(cpb)
 
 
-# In[37]:
 
-d_bins = ld_contig.distance_bin.unique()
-d_bins.sort()
-d_bins
-# Generate a dict to map how many contigs avail to each bin
-contigs_per_bin = get_contigs_per_bin(d_bins,contig_info)
-contigs_per_bin
 
-
-# In[38]:
-
-contigs_per_bin = pd.DataFrame(contigs_per_bin,columns=['contigs_per_bin'])
-
-
-# In[39]:
-
-contigs_per_bin = contigs_per_bin.reset_index().rename(columns={'index':'distance_bin'}, inplace=False)
-
-
-# In[40]:
-
-contigs_per_bin.head()
-
-
-# In[41]:
-
-gp.ggplot(gp.aes(x='distance_bin', y='contigs_per_bin'), data=contigs_per_bin) +     gp.geom_point(color='lightblue') +     gp.stat_smooth(span=.15, color='red', se=True)
-
-
-# ## All contigs together
-
-# In[42]:
-
-ld_contig.head()
-
-
-# In[43]:
-
-mean_bin_r2_all = ld_contig.groupby("distance_bin").mean().reset_index()
-
-
-# In[44]:
-
-median_bin_r2_all = ld_contig.groupby("distance_bin").median().reset_index()
-
-
-# In[45]:
-
-gp.ggplot(gp.aes(x='distance_bin', y='R2'), data=mean_bin_r2_all.query("distance_bin >= 0")) +     gp.geom_point(color='lightblue', alpha=0.4) +     gp.stat_smooth(span=.15, color='red', se=True)
-
-
-# In[46]:
-
-gp.ggplot(gp.aes(x='distance_bin', y='R2'), data=mean_bin_r2_all.query("distance_bin <= 30000")) +     gp.geom_point(color='lightblue') +     gp.stat_smooth(span=0.15, color='red', se=True) 
-
-
-# In[47]:
-
-len(ld_contig)
-
-
-# In[48]:
-
-len_contigs_per_bin = ld_contig.pivot_table(index=['distance_bin'], 
-                                            values=['scaf_name'],
-                                            aggfunc=[len]
-                                           )['len'].reset_index()
-
-len_contigs_per_bin = len_contigs_per_bin.rename(columns={'scaf_name':'SNP-pairs'}, inplace=False)
-len_contigs_per_bin.head()
-
-
-# In[49]:
-
-len_contigs_per_bin.
-
-
-# In[58]:
-
-sp_gt100mask = len_contigs_per_bin["SNP-pairs"] > 100
-
-gp.ggplot(gp.aes(x='distance_bin', y='SNP-pairs'), data=len_contigs_per_bin[sp_gt100mask]) +     gp.geom_point(color='lightblue') +     gp.stat_smooth(span=.15, color='red', se=True) + gp.ylab('SNP-pairs per bin')
-
-
-# In[57]:
-
-
-
-
-# In[56]:
-
-ld_contig.head()
-
-
-# In[57]:
-
-d_bin_v_others = ld_contig.pivot_table(index=['distance_bin'], 
-                                        values=['R2','one_minus_cdf_BH'],
-                                        aggfunc=[np.mean]
-                                       )['mean'].reset_index()
-d_bin_v_others.head()
-
-
-# In[58]:
-
-d_bin_v_others = d_bin_v_others.merge(right=len_contigs_per_bin, 
-                     how='inner', 
-                     on='distance_bin'
-                     ).merge(right=contigs_per_bin, 
-                             how='inner', 
-                             on='distance_bin'
-                            )
-d_bin_v_others.head()
-
-
-# In[59]:
-
-d_bin_v_others_melt = pd.melt(d_bin_v_others, id_vars=['distance_bin'])
-
-
-# In[81]:
-
-d_bin_v_others_melt.head()
-
-
-# In[84]:
-
-xmin = 0
-xmax = 100000000000
-gp.ggplot(gp.aes(x='distance_bin', y='value'), 
-          data=d_bin_v_others_melt.query("{xmin} <= distance_bin <= {xmax}".format(xmin=xmin,
-                                                                                   xmax=xmax
-                                                                                  ))) + \
-    gp.geom_point(color='lightblue', alpha=0.06) + \
-    gp.stat_smooth(span=0.2, color='red', se=True)  + \
-    gp.facet_wrap("variable")
-
-
-# In[61]:
-
-# g = sns.PairGrid(d_bin_v_others.loc[:,["R2", "one_minus_cdf_BH",    "SNP-pairs",   "contigs_per_bin",]])
-# g.map_upper(plt.scatter)
-# g.map_lower(sns.kdeplot, cmap="Blues_d")
-# g.map_diag(sns.kdeplot, lw=3, legend=False)
-d_bin_vars = d_bin_v_others.loc[:,["R2", "one_minus_cdf_BH",    "SNP-pairs",   "contigs_per_bin",]]
-
-
-# In[62]:
-
-d_bin_vars.head()
-
-
-# In[63]:
-
-sns.palplot(sns.cubehelix_palette(8, start=.5, rot=-.75))
-
-
-# In[64]:
-
-my_cmap=sns.cubehelix_palette(40, start=.5, rot=-.75, as_cmap=True)
-cc = sns.mpl.colors.ColorConverter()
-marginal_color = cc.to_rgb(arg=my_cmap.colors[int(255*1)])
-
-
-# In[65]:
-
-# sns.jointplot('SNP-pairs','R2',d_bin_vars, kind='kde',
-#               joint_kws=dict(shade=True,
-#                              cmap=my_cmap,
-#                              n_levels=40
-#                             ),
-#               marginal_kws=dict(shade=True, color=my_cmap.colors[int(256*0.66)])
-#              )
-
-g = sns.JointGrid('SNP-pairs','R2',d_bin_vars)
-g.plot_marginals(sns.distplot, kde=False, color=marginal_color)
-g.plot_joint(sns.kdeplot, shade=True, cmap=my_cmap, n_levels=40);
-
-
-# In[66]:
-
-# sns.jointplot('one_minus_cdf_BH','R2',d_bin_vars, kind='kde',
-#               joint_kws=dict(shade=True,
-#                              cmap=my_cmap,
-#                              n_levels=40
-#                             ),
-#               marginal_kws=dict(shade=True, color=my_cmap.colors[int(256*0.66)])
-#              )
-
-g = sns.JointGrid('one_minus_cdf_BH','R2',d_bin_vars)
-g.plot_marginals(sns.distplot, kde=False, color=marginal_color)
-g.plot_joint(sns.kdeplot, shade=True, cmap=my_cmap, n_levels=40, alpha=1);
-
-
-# In[70]:
-
-sns.jointplot('contigs_per_bin','SNP-pairs',d_bin_vars, kind='kde',
-              joint_kws=dict(shade=True,
-                             cmap=my_cmap,
-                             n_levels=8
-                            ),
-              marginal_kws=dict(shade=True, color=my_cmap.colors[int(256*0.66)])
-             )
-
-
-# ## 5 random contigs
