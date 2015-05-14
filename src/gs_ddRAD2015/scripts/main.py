@@ -11,6 +11,7 @@ main.py
 =================================================
 """
 import os
+
 import munch
 import yaml
 import gs_ddRAD2015.scripts.ld_figures
@@ -88,6 +89,11 @@ def process_ld_data(ctx, ld_path, out_path, ld_prog, distance_bin):
         ld_path    Path to the table file created by the LD calculation program.
         out_path   Path to where you want to save the results pickle.
     """
+
+    if not os.path.exists(out_path):
+        click.echo("process_ld_data: Creating path: {out}.".format(out=out_path))
+        os.makedirs(out_path)
+
     gs_ddRAD2015.scripts.process_ld_data.run(ld_path, out_path, ld_prog, distance_bin)
 
 
@@ -109,18 +115,37 @@ def process_ld_data(ctx, ld_path, out_path, ld_prog, distance_bin):
               default='.')
 @click.option('--formats',
               type=click.Choice(['png', 'svg', 'pdf', 'all', 'none']),
+              multiple=True,
               help="the formats that you wish to be produced. Choosing 'none' disables saving of any kind.",
               show_default=True,
               default='none')
+@click.option('--save-tables/--no-save-tables',
+              show_default=True,
+              help="save the data tables in out directory and use them instead of doing the data "
+                   "crunching "
+                   "over and over each run.",)
+@click.option('--force-save/--no-force-save',
+              show_default=True,
+              help="force overwrite data_tables.", )
 @click.pass_context
-def ld_figures(ctx, ld_pickle, out_dir, formats, contig_length):
+def ld_figures(ctx, ld_pickle, out_dir, formats, contig_length, save_tables, force_save):
     """
     Generates LD figures.
 
     Takes processed LD d in from of a python pickle and produces figures.
     """
 
-    gs_ddRAD2015.scripts.ld_figures.run(ld_pickle, out_dir, formats, contig_length)
+    if not os.path.exists(out_dir):
+        click.echo("ld_figures: Creating path: {out}.".format(out=out_dir))
+        os.makedirs(out_dir)
+
+    if 'none' in formats:
+        formats = ('none',)
+
+    if 'all' in formats:
+        formats = ('png', 'svg', 'pdf')
+
+    gs_ddRAD2015.scripts.ld_figures.run(ld_pickle, out_dir, formats, contig_length, save_tables, force_save)
 
 
 if __name__ == '__main__':
