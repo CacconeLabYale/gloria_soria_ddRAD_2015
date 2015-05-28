@@ -32,6 +32,7 @@ import ipdb
 
 # this is the command function
 
+echo = click.echo
 
 
 
@@ -60,22 +61,29 @@ def run(ld_path, out_path, ld_prog, distance_bin):
     else:
         ld = pd.read_table(ld_path, sep=" +", engine='python')
 
+    echo("Calculating distance between snp-pairs.")
     ld['BP_DELTA'] = abs(ld.BP_A - ld.BP_B)
 
-    # establish the distance_bin column
+    echo("Establishing the distance_bin column.")
     update_distance_bin(ld, win=distance_bin)
 
-    # Scale the Dists to (0,1) instead of [0,1]
+    echo("Re-scaling the R^2 values to (0,1) instead of [0,1].")
     ld["R2_scaled_for_B"] = ld.R2.apply(lambda x: ((x-0.5)*0.999) + 0.5)
 
-    # Set up the models and do the calculations
+    echo("Setting up the models and doing the MAP calculations:")
     models = {}
+
     for model in yield_models(ld):
         # models[model.bin_id_tag] = model  # Save models in case we need to plot MCMC convergence plots
         record_parameters_and_probabilities(ld, model)
 
-    # Save results to pickle as pandas dataframe
-    ld.to_pickle(out_path)
+    echo("Saving results to CSV from pandas dataframe.")
+    ld.to_csv(path_or_buf=out_path, sep=",", na_rep='nan', float_format=None,
+              columns=None, header=True, index=True, index_label=None,
+              mode='w', encoding=None, quoting=None,
+              quotechar='"', line_terminator='\n', chunksize=None,
+              tupleize_cols=False, date_format=None, doublequote=True,
+              escapechar=None, decimal='.')
 
 # #################### BELOW ARE HELPER FUNCTIONS #####################
 
@@ -93,50 +101,51 @@ def update_distance_bin(df, win=100):
 def yield_models(dataframe):
 
     bin_ids = dataframe.distance_bin.unique()
-    for bin_id in bin_ids:
-        
-        assert isinstance(bin_id, int)
+    with click.progressbar(bin_ids) as bin_ids:
+        for bin_id in bin_ids:
+
+            assert isinstance(bin_id, int)
 
 
-        # get our distance binned r^2 d in a nice dataframe
-        # then drop any rows with R2 == NANs
-        data = dataframe.query("(distance_bin == {bin_id})".format(bin_id=bin_id))
+            # get our distance binned r^2 d in a nice dataframe
+            # then drop any rows with R2 == NANs
+            data = dataframe.query("(distance_bin == {bin_id})".format(bin_id=bin_id))
 
 
-        na_mask = data.R2.apply(lambda r2: not np.isnan(r2))
-        data = data[na_mask]
+            na_mask = data.R2.apply(lambda r2: not np.isnan(r2))
+            data = data[na_mask]
 
 
-        # generate names for stocastics
-        alpha_name = "{bin_id}_alpha".format(bin_id=bin_id)
-        beta_name = "{bin_id}_beta".format(bin_id=bin_id)
-        r2_dist_name = "{bin_id}_r2_distribution_beta".format(bin_id=bin_id)
+            # generate names for stocastics
+            alpha_name = "{bin_id}_alpha".format(bin_id=bin_id)
+            beta_name = "{bin_id}_beta".format(bin_id=bin_id)
+            r2_dist_name = "{bin_id}_r2_distribution_beta".format(bin_id=bin_id)
 
-        # set priors for parameters
-        alpha_of_beta = mc.Uniform(alpha_name, 0.01, 10)
-        beta_of_beta = mc.Uniform(beta_name, 0.01, 10)
+            # set priors for parameters
+            alpha_of_beta = mc.Uniform(alpha_name, 0.01, 10)
+            beta_of_beta = mc.Uniform(beta_name, 0.01, 10)
 
-        # set the d
-        try:
-            r2_distribution_beta = mc.Beta(name=r2_dist_name,
-                                           alpha=alpha_of_beta,
-                                           beta=beta_of_beta,
-                                           value=data.R2_scaled_for_B.dropna(),
-                                           observed=True,
-                                           verbose=0
-                                           )
-        
+            # set the d
+            try:
+                r2_distribution_beta = mc.Beta(name=r2_dist_name,
+                                               alpha=alpha_of_beta,
+                                               beta=beta_of_beta,
+                                               value=data.R2_scaled_for_B.dropna(),
+                                               observed=True,
+                                               verbose=0
+                                               )
 
-            # create and yield the model object tagged with its bin_id
-            model = mc.Model([r2_distribution_beta, alpha_of_beta, beta_of_beta])
-            model.bin_id_tag = bin_id
-            model.MCMC_run = None  # allow us to know how many times we had to do the experiments rather than MAP
-        
-        except ValueError as exc:
-            if "but got (0,)" in exc.message:
-                yield munch.Munch(bin_id_tag=bin_id)
 
-        yield model
+                # create and yield the model object tagged with its bin_id
+                model = mc.Model([r2_distribution_beta, alpha_of_beta, beta_of_beta])
+                model.bin_id_tag = bin_id
+                model.MCMC_run = None  # allow us to know how many times we had to do the experiments rather than MAP
+
+            except ValueError as exc:
+                if "but got (0,)" in exc.message:
+                    yield munch.Munch(bin_id_tag=bin_id)
+
+            yield model
 
 
 def record_parameters_and_probabilities(df, model):

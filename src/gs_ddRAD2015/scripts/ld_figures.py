@@ -30,12 +30,12 @@ echo = click.echo
 
 
 
-def run(ld_pickle, out_dir, formats, contig_length, save_tables, force_save):
+def run(ld_csv, out_dir, formats, contig_length, save_tables, force_save):
     """
     Takes processed LD d in form of a python pickle and produces figures.
 
     Args:
-        ld_pickle (str): path to pickle file.
+        ld_csv (str): path to csv file.
         out_dir (str): path to directory where the figures should go.
         formats (list): one or more of ['png','svg','pdf','none'].
         contig_length (str): path to csv file with two labeled columns: ['scaf_name','length'].
@@ -80,7 +80,7 @@ def run(ld_pickle, out_dir, formats, contig_length, save_tables, force_save):
 
         # # Loading files
         # load our results tables
-        figs.d.ld = pd.read_pickle(ld_pickle)
+        figs.d.ld = pd.read_csv(ld_csv)
         # progbar.update(1)
 
         figs.d.contig_info = pd.read_csv(contig_length)

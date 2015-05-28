@@ -87,12 +87,13 @@ def process_ld_data(ctx, ld_path, out_path, ld_prog, distance_bin):
     \b
     Positional Args:
         ld_path    Path to the table file created by the LD calculation program.
-        out_path   Path to where you want to save the results pickle.
+        out_path   Path to where you want to save the results CSV.
     """
+    out_dir, out_fname = os.path.split(out_path)
 
-    if not os.path.exists(out_path):
-        click.echo("process_ld_data: Creating path: {out}.".format(out=out_path))
-        os.makedirs(out_path)
+    if not os.path.exists(out_dir):
+        click.echo("process_ld_data: Creating directory: {out}.".format(out=out_dir))
+        os.makedirs(out_dir)
 
     gs_ddRAD2015.scripts.process_ld_data.run(ld_path, out_path, ld_prog, distance_bin)
 
@@ -100,9 +101,9 @@ def process_ld_data(ctx, ld_path, out_path, ld_prog, distance_bin):
 
 
 @cli.command()
-@click.option('--ld-pickle',
+@click.option('--ld-csv',
               type=click.Path(),
-              help="path to pickle file.",
+              help="path to processed csv file.",
               show_default=True,
               default='.')
 @click.option('--contig-length',
@@ -128,7 +129,7 @@ def process_ld_data(ctx, ld_path, out_path, ld_prog, distance_bin):
               show_default=True,
               help="force overwrite data_tables.", )
 @click.pass_context
-def ld_figures(ctx, ld_pickle, out_dir, formats, contig_length, save_tables, force_save):
+def ld_figures(ctx, ld_csv, out_dir, formats, contig_length, save_tables, force_save):
     """
     Generates LD figures.
 
@@ -136,7 +137,7 @@ def ld_figures(ctx, ld_pickle, out_dir, formats, contig_length, save_tables, for
     """
 
     if not os.path.exists(out_dir):
-        click.echo("ld_figures: Creating path: {out}.".format(out=out_dir))
+        click.echo("ld_figures: Creating directory: {out}.".format(out=out_dir))
         os.makedirs(out_dir)
 
     if 'none' in formats:
@@ -145,7 +146,7 @@ def ld_figures(ctx, ld_pickle, out_dir, formats, contig_length, save_tables, for
     if 'all' in formats:
         formats = ('png', 'svg', 'pdf')
 
-    gs_ddRAD2015.scripts.ld_figures.run(ld_pickle, out_dir, formats, contig_length, save_tables, force_save)
+    gs_ddRAD2015.scripts.ld_figures.run(ld_csv, out_dir, formats, contig_length, save_tables, force_save)
 
 
 if __name__ == '__main__':
