@@ -101,11 +101,16 @@ def process_ld_data(ctx, ld_path, out_path, ld_prog, distance_bin):
 
 
 @cli.command()
-@click.option('--ld-csv',
+@click.option('--ld-table',
               type=click.Path(),
-              help="path to processed csv file.",
+              help="path to processed table file.",
               show_default=True,
               default='.')
+@click.option('--table-type',
+              type=click.Choice(['csv', 'pkl']),
+              help="format of table file.",
+              show_default=True,
+              default='csv')
 @click.option('--contig-length',
               type=click.Path(),
               help="path to pickle file.",)
@@ -129,7 +134,7 @@ def process_ld_data(ctx, ld_path, out_path, ld_prog, distance_bin):
               show_default=True,
               help="force overwrite data_tables.", )
 @click.pass_context
-def ld_figures(ctx, ld_csv, out_dir, formats, contig_length, save_tables, force_save):
+def ld_figures(ctx, ld_table, table_type, out_dir, formats, contig_length, save_tables, force_save):
     """
     Generates LD figures.
 
@@ -146,7 +151,7 @@ def ld_figures(ctx, ld_csv, out_dir, formats, contig_length, save_tables, force_
     if 'all' in formats:
         formats = ('png', 'svg', 'pdf')
 
-    gs_ddRAD2015.scripts.ld_figures.run(ld_csv, out_dir, formats, contig_length, save_tables, force_save)
+    gs_ddRAD2015.scripts.ld_figures.run(ld_table, table_type, out_dir, formats, contig_length, save_tables, force_save)
 
 
 if __name__ == '__main__':

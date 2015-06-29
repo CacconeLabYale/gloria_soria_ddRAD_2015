@@ -16,6 +16,8 @@ import seaborn as sns
 import ggplot as gp
 import pandas as pd
 
+from statsmodels.nonparametric.smoothers_lowess import lowess
+
 pd.set_option('display.max_columns', 60)
 
 import numpy as np
@@ -30,12 +32,12 @@ echo = click.echo
 
 
 
-def run(ld_csv, out_dir, formats, contig_length, save_tables, force_save):
+def run(ld_table, table_type, out_dir, formats, contig_length, save_tables, force_save):
     """
     Takes processed LD d in form of a python pickle and produces figures.
 
     Args:
-        ld_csv (str): path to csv file.
+        ld_table (str): path to csv file.
         out_dir (str): path to directory where the figures should go.
         formats (list): one or more of ['png','svg','pdf','none'].
         contig_length (str): path to csv file with two labeled columns: ['scaf_name','length'].
@@ -80,7 +82,10 @@ def run(ld_csv, out_dir, formats, contig_length, save_tables, force_save):
 
         # # Loading files
         # load our results tables
-        figs.d.ld = pd.read_csv(ld_csv)
+        if table_type == 'csv':
+            figs.d.ld = pd.read_csv(ld_table)
+        else:
+            figs.d.ld = pd.read_pickle(ld_table)
         # progbar.update(1)
 
         figs.d.contig_info = pd.read_csv(contig_length)
@@ -164,7 +169,12 @@ def run(ld_csv, out_dir, formats, contig_length, save_tables, force_save):
 # ######################################################################
 
 
-
+def lowess_scatter(x, y, s=20, c=u'b', marker=u'o', cmap=None, norm=None, vmin=None, vmax=None, alpha=None,
+                   linewidths=None, verts=None, hold=None, **kwargs):
+    plt.scatter(x, y, s=20, c=c, marker=marker, cmap=cmap, norm=norm, vmin=vmin, vmax=vmax, alpha=alpha,
+                linewidths=linewidths, verts=verts, hold=hold, **kwargs)
+    ys = lowess(y, x, frac=.15)[:, 1]
+    plt.plot(x, ys, 'red', linewidth=1)
 
 class Figures(object):
 
@@ -236,13 +246,15 @@ class Figures(object):
             try:
                 if is_ggplot:
                     gp.ggsave(path.format(ext=t), plot=is_ggplot)
-                    click.echo("\nld_figures: Saved {0}.".format(path.format(ext=t)))
+                    # click.echo("\nld_figures: Saved {0}.".format(path.format(ext=t)))
                 else:
                     plt.savefig(path.format(ext=t), bbox_inches='tight')
-                    click.echo("\nld_figures: Saved {0}.".format(path.format(ext=t)))
+                    plt.close()
+                    # click.echo("\nld_figures: Saved {0}.".format(path.format(ext=t)))
             except IndexError as exc:
                 if 'index out of bounds' in exc.args[0]:
-                    click.echo("\nld_figures: skipping due to lack of data.")
+                    # click.echo("\nld_figures: skipping due to lack of data.")
+                    pass
 
     def _plot_bin_dists(self, df, bin_def="distance_bin <= 500"):
         g = sns.FacetGrid(data=df.query(bin_def),
@@ -261,6 +273,11 @@ class Figures(object):
             cpb[b] = sum(contig_info.length > b)
 
         return pd.Series(cpb)
+
+    def _plot_scat_w_line(self, gp_aes):
+        return gp_aes + gp.geom_point(color='coral') + gp.stat_smooth(span=.2, color='blue',
+                                                                      se=False) + gp.theme_seaborn(
+            context='talk')
 
     def _plot_scat_w_line(self, gp_aes):
         return gp_aes + gp.geom_point(color='coral') + gp.stat_smooth(span=.2, color='blue',
@@ -544,10 +561,10 @@ class Figures(object):
         # print p
 
         self.save_figs(base_dir=self.base_dir,
-                  fname=fname,
-                  save_types=self.formats,
-                  is_ggplot=p
-                  )
+                       fname=fname,
+                       save_types=self.formats,
+                       is_ggplot=p
+                       )
         # 
 
     # In[ ]:
@@ -557,18 +574,13 @@ class Figures(object):
                    (150, 1000),
                    (150, 3000),
                    (150, 10000),
-                   (150, 20000),
                    (150, 30000),
-                   (150, 40000),
                    (150, 50000),
-                   (150, 60000),
                    (150, 70000),
-                   (150, 80000),
                    (150, 90000),
-                   (150, 100000),)
-
-        xmins = (0, 150,)
-        xmaxs = (1000,)
+                   (150, 100000),
+                   (150, 150000),
+                   (150, 200000))
 
         for xmin, xmax in extents:
             fname = "distance_VS_avgR2_snpperbin_contigsperbin_q_b{bmin}-to-b{bmax}".format(
@@ -576,27 +588,33 @@ class Figures(object):
                 bmax=xmax
             )
 
-            p = self._plot_scat_w_line(
-                gp.ggplot(
-                    gp.aes(
-                        x='distance_bin', y='value'),
-                    data=self.d.d_bin_v_others_melt.query(
-                        "{xmin} <= distance_bin <= {xmax}".format(
-                            xmin=xmin,
-                            xmax=xmax
-                        )
-                    )
-                )
-            ) + \
-                gp.facet_wrap("variable") + \
-                gp.ggtitle(fname)
+            # p = self._plot_scat_w_line(
+            #     gp.ggplot(
+            #         gp.aes(
+            #             x='distance_bin', y='value'),
+            #         data=self.d.d_bin_v_others_melt.query(
+            #             "{xmin} <= distance_bin <= {xmax}".format(
+            #                 xmin=xmin,
+            #                 xmax=xmax
+            #             )
+            #         )
+            #     )
+            # ) + \
+            #     gp.facet_wrap("variable") + \
+            #     gp.ggtitle(fname)
 
             # print p
+
+            data = self.d.d_bin_v_others_melt.query("{xmin} <= distance_bin <= {xmax}".format(xmin=xmin, xmax=xmax))
+
+            g = sns.FacetGrid(data, col="variable", col_wrap=2, sharey=False, size=6, )
+            g.map(lowess_scatter, "distance_bin", "value", alpha=.7, )
+            g.set_titles("{col_name}")
 
             self.save_figs(base_dir=self.base_dir,
                            fname=fname,
                            save_types=self.formats,
-                           is_ggplot=p
+                           is_ggplot=False
                            )
             # 
 
