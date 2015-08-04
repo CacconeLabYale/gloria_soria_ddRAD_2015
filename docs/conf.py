@@ -24,9 +24,9 @@ version = release = re.findall(
     open(os.path.join(os.path.dirname(__file__), '../setup.py')).read()
 )[0]
 
-import sphinx_py3doc_enhanced_theme
-html_theme = "sphinx_py3doc_enhanced_theme"
-html_theme_path = [sphinx_py3doc_enhanced_theme.get_html_theme_path()]
+import sphinx_rtd_theme
+html_theme = "sphinx_rtd_theme"
+html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 pygments_style = 'trac'
 templates_path = ['.']
@@ -37,6 +37,6 @@ html_sidebars = {
    '**': ['searchbox.html', 'globaltoc.html', 'sourcelink.html'],
 }
 html_short_title = '%s-%s' % (project, version)
-html_theme_options = {
-    'githuburl': 'https://github.com/CacconeLabYale/gloria_soria_ddRAD_2015/'
-}
+# html_theme_options = {
+#     'githuburl': 'https://github.com/CacconeLabYale/gloria_soria_ddRAD_2015/'
+# }
