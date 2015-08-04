@@ -12,6 +12,7 @@ from os.path import splitext
 from setuptools import find_packages
 from setuptools import setup
 
+
 def read(*names, **kwargs):
     return io.open(
         join(dirname(__file__), *names),
@@ -22,7 +23,7 @@ def read(*names, **kwargs):
 setup(
     name="gloria_soria_ddRAD_2015",
     version="0.1.0",
-    license="BSD",
+    license="MIT",
     description="Code supporting the Gloria-Soria et al 2015 paper on tsetse population genomics using ddRAD seq.",
     long_description="%s\n%s" % (read("README.rst"), re.sub(":obj:`~?(.*?)`", r"``\1``", read("CHANGELOG.rst"))),
     author="Gus Dunn",
@@ -37,7 +38,7 @@ setup(
         # complete classifier list: http://pypi.python.org/pypi?%3Aaction=list_classifiers
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: BSD License",
+        "License :: OSI Approved :: MIT",
         "Operating System :: Unix",
         "Operating System :: POSIX",
         "Operating System :: Microsoft :: Windows",
@@ -52,13 +53,15 @@ setup(
     ],
     install_requires=[
         # eg: "aspectlib==1.1.1", "six>=1.7",
+        'click',
     ],
     extras_require={
         # eg: "rst": ["docutils>=0.11"],
     },
     entry_points={
         "console_scripts": [
-            "gs_ddRAD2015 = gs_ddRAD2015.__main__:main"
+            "gs_ddRAD2015 = gs_ddRAD2015.scripts.main:cli",
+
         ]
     },
 )
