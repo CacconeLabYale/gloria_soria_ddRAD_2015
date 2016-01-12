@@ -66,7 +66,7 @@ setup(
         'tables',
         'scipy',
         'statsmodels',
-        'ipbd',
+        'ipdb',
         'pymc',
         'pybedtools',
         'tabulate',
@@ -77,7 +77,7 @@ setup(
     },
     dependency_links = [
         'https://github.com/xguse/spartan/archive/20151001.3.tar.gz#egg=spartan-20151001.3',
-    ]
+    ],
     entry_points={
         "console_scripts": [
             "gs_ddRAD2015 = gs_ddRAD2015.scripts.main:cli",
