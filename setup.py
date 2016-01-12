@@ -54,10 +54,30 @@ setup(
     install_requires=[
         # eg: "aspectlib==1.1.1", "six>=1.7",
         'click',
+        'ipython',
+        'sh',
+        'matplotlib',
+        'munch',
+        'seaborn',
+        'ggplot',
+        'numpy',
+        'pandas',
+        'PyYAML',
+        'tables',
+        'scipy',
+        'statsmodels',
+        'ipbd',
+        'pymc',
+        'pybedtools',
+        'tabulate',
+        'scikits.bootstrap',
     ],
     extras_require={
         # eg: "rst": ["docutils>=0.11"],
     },
+    dependency_links = [
+        'https://github.com/xguse/spartan/archive/20151001.3.tar.gz#egg=spartan-20151001.3',
+    ]
     entry_points={
         "console_scripts": [
             "gs_ddRAD2015 = gs_ddRAD2015.scripts.main:cli",
