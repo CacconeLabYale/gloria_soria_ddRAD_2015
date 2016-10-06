@@ -1,8 +1,4 @@
 import click
-import ipdb
-import sh
-
-
 
 import inspect
 import collections
@@ -23,10 +19,6 @@ pd.set_option('display.max_columns', 60)
 import numpy as np
 
 echo = click.echo
-
-# def echo(msg):
-#     click.echo(msg)
-#     sh.fembot(t=msg)
 
 
 
@@ -331,7 +323,7 @@ class Figures(object):
                   save_types=self.formats,
                   is_ggplot=False
                   )
-        
+
 
     # ########## Figure  ##########
     def plot_distance_bins_15000_15500(self):
@@ -346,7 +338,7 @@ class Figures(object):
                   save_types=self.formats,
                   is_ggplot=False
                   )
-        
+
 
     # ########## Figure  ##########
     def plot_distance_bins_30000_30500(self):
@@ -361,7 +353,7 @@ class Figures(object):
                   save_types=self.formats,
                   is_ggplot=False
                   )
-        
+
 
     # ########## Figure  ##########
     def plot_distance_bins_50000_50500(self):
@@ -376,7 +368,7 @@ class Figures(object):
                   save_types=self.formats,
                   is_ggplot=False
                   )
-        
+
 
     # ########## Figure  ##########
     def plot_distance_bins_70000_70500(self):
@@ -391,7 +383,7 @@ class Figures(object):
                   save_types=self.formats,
                   is_ggplot=False
                   )
-        
+
 
     # ########## Figure  ##########
     def plot_distance_bins_100000_100500(self):
@@ -406,7 +398,7 @@ class Figures(object):
                   save_types=self.formats,
                   is_ggplot=False
                   )
-        
+
 
     # ########## Figure  ##########
     def plot_all_contig_len_dist(self):
@@ -459,7 +451,7 @@ class Figures(object):
                        save_types=self.formats,
                        is_ggplot=p
                        )
-        # 
+        #
 
     # ## All contigs together
     # ########## Figure  ##########
@@ -477,7 +469,7 @@ class Figures(object):
                   save_types=self.formats,
                   is_ggplot=p
                   )
-        # 
+        #
 
     # ########## Figure  ##########
     def plot_distance_VS_r2_le30K(self):
@@ -493,7 +485,7 @@ class Figures(object):
                   save_types=self.formats,
                   is_ggplot=p
                   )
-        # 
+        #
 
     # ########## Figure  ##########
     def plot_distance_VS_r2_le40K(self):
@@ -509,7 +501,7 @@ class Figures(object):
                   save_types=self.formats,
                   is_ggplot=p
                   )
-        # 
+        #
 
     # ########## Figure  ##########
     def plot_distance_VS_r2_le50K(self):
@@ -525,7 +517,7 @@ class Figures(object):
                   save_types=self.formats,
                   is_ggplot=p
                   )
-        # 
+        #
 
     # ########## Figure  ##########
     def plot_distance_VS_sp_per_bin_gt100(self):
@@ -545,7 +537,7 @@ class Figures(object):
                   save_types=self.formats,
                   is_ggplot=p
                   )
-        # 
+        #
 
     # ########## Figure  ##########
     def plot_distance_VS_sp_per_bin_gt150(self):
@@ -565,7 +557,7 @@ class Figures(object):
                        save_types=self.formats,
                        is_ggplot=p
                        )
-        # 
+        #
 
     # In[ ]:
     def plot_distance_VS_avgR2_snpperbin_contigsperbin_q_b_bmin_to_bbmax(self):
@@ -616,7 +608,7 @@ class Figures(object):
                            save_types=self.formats,
                            is_ggplot=False
                            )
-            # 
+            #
 
     def plot_extras(self):
         # In[ ]:
@@ -676,8 +668,3 @@ class Figures(object):
                                      ),
                       marginal_kws=dict(shade=True, color=my_cmap.colors[int(256 * 0.66)])
                       )
-
-
-
-
-
