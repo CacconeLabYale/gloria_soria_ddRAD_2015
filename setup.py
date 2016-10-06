@@ -22,7 +22,7 @@ def read(*names, **kwargs):
 
 setup(
     name="gloria_soria_ddRAD_2015",
-    version="0.1.0",
+    version="1.0.1",
     license="MIT",
     description="Code supporting the Gloria-Soria et al 2015 paper on tsetse population genomics using ddRAD seq.",
     long_description="%s\n%s" % (read("README.rst"), re.sub(":obj:`~?(.*?)`", r"``\1``", read("CHANGELOG.rst"))),
@@ -44,20 +44,38 @@ setup(
         "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python",
         "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: Implementation :: CPython",
-        "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Utilities",
     ],
     keywords=[
         # eg: "keyword1", "keyword2", "keyword3",
     ],
-    install_requires=[
-        # eg: "aspectlib==1.1.1", "six>=1.7",
-        'click',
-    ],
+    # install_requires=[
+    #     # eg: "aspectlib==1.1.1", "six>=1.7",
+    #     'click',
+    #     'ipython',
+    #     'matplotlib',
+    #     'munch',
+    #     'seaborn',
+    #     'ggplot',
+    #     'numpy',
+    #     'pandas',
+    #     'PyYAML',
+    #     'pytables',
+    #     'scipy',
+    #     'statsmodels',
+    #     'ipdb',
+    #     'pymc',
+    #     'pybedtools',
+    #     'tabulate',
+    #     'scikits.bootstrap',
+    #
+    # ],
     extras_require={
         # eg: "rst": ["docutils>=0.11"],
     },
+    dependency_links = [
+        # 'https://github.com/xguse/spartan/archive/20151001.3.tar.gz#egg=spartan-20151001.3',
+    ],
     entry_points={
         "console_scripts": [
             "gs_ddRAD2015 = gs_ddRAD2015.scripts.main:cli",
