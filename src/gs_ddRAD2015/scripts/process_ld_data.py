@@ -23,8 +23,6 @@ import pymc as mc
 
 import click
 
-import ipdb
-
 # import warnings
 
 # warnings.filterwarnings('error')
@@ -35,21 +33,6 @@ import ipdb
 echo = click.echo
 
 
-
-# @click.command(context_settings=CONTEXT_SETTINGS)
-# @click.option('--ld-prog',
-#     type=click.Choice(['plink','vcftools']),
-#     help="Which program was used to generate the LD values?",
-#     show_default=True,
-#     default='vcftools')
-# @click.option('--distance-bin',
-#     default=50,
-#     show_default=True,
-#     help="How wide do you want the bin window?")
-# @click.argument('ld_path',
-#     type=click.Path(exists=True))
-# @click.argument('out_path',
-#     type=click.Path())
 def run(ld_path, out_path, ld_prog, distance_bin):
     """
     ld_path = "Path to the table file created by the LD calculation program."
@@ -111,10 +94,8 @@ def yield_models(dataframe):
             # then drop any rows with R2 == NANs
             data = dataframe.query("(distance_bin == {bin_id})".format(bin_id=bin_id))
 
-
             na_mask = data.R2.apply(lambda r2: not np.isnan(r2))
             data = data[na_mask]
-
 
             # generate names for stocastics
             alpha_name = "{bin_id}_alpha".format(bin_id=bin_id)
@@ -135,7 +116,6 @@ def yield_models(dataframe):
                                                verbose=0
                                                )
 
-
                 # create and yield the model object tagged with its bin_id
                 model = mc.Model([r2_distribution_beta, alpha_of_beta, beta_of_beta])
                 model.bin_id_tag = bin_id
@@ -149,7 +129,7 @@ def yield_models(dataframe):
 
 
 def record_parameters_and_probabilities(df, model):
-    
+
     if not isinstance(model, mc.Model):
         return model
 
@@ -163,47 +143,55 @@ def record_parameters_and_probabilities(df, model):
         df['cdf'] = np.nan
         df['one_minus_cdf'] = np.nan
         df['one_minus_cdf_BH'] = np.nan
-        df['MAP_succeeded'] = False
-    
+        df['MAP_succeeded'] = 'no val'
+
     # set up a mask for this distance_bin
     bin_mask = df.distance_bin == model.bin_id_tag
-    
-    # perform Max A Posteriori 
+
+    # perform Max A Posteriori
     model_runner = mc.MAP(model)
-    
-    
+
+
     # Parameter names for access through the model
     a_name = "{bin_id}_alpha".format(bin_id=model.bin_id_tag)
     b_name = "{bin_id}_beta".format(bin_id=model.bin_id_tag)
-    
+
     try:
         # if we can take the short cut, great!
         model_runner.fit()
         model.MCMC_run = False
-    except RuntimeError as exc:
+        df.loc[bin_mask, 'MAP_succeeded'] = "MAP"
+    except (RuntimeError, ZeroDivisionError) as exc:
+
+        run_mcmc = False
+        dbin = df.query(""" distance_bin == {d} """.format(d=model.bin_id_tag))
+
         if "Posterior probability optimization converged to value with zero probability." in exc.message:
-            # Otherwise lets run the MCMC experiment 
-            model_runner = mc.MCMC(model)
-            model.MCMC_run = model_runner
-            
-            
-            # re-initialize the alpha and beta starting values randomly
-            # to avoid non-allowed values that seem to slip in from the MAP.fit()
-            current_alpha,current_beta = model.get_node(a_name),model.get_node(b_name)
-            current_alpha.random()
-            current_beta.random()
-            
-            # do the learning
-            model_runner.sample(iter=40000, burn=20000, thin=1)
-            
-            
-    
+            # Otherwise lets run the MCMC experiment
+            echo("\nEncountered 'zero probability' error, running MCMC for distance_bin: {bin_id} with {num} SNPs.".format(bin_id=model.bin_id_tag,num=len(dbin)))
+
+            run_mcmc = True
+
+        elif "float division by zero" in exc.message:
+            # Otherwise lets run the MCMC experiment
+            echo("\nEncountered 'float division by zero' error, running MCMC for distance_bin: {bin_id} with {num} SNPs.".format(bin_id=model.bin_id_tag,num=len(dbin)))
+
+            run_mcmc = True
+
+        else:
+            raise
+
+        if run_mcmc:
+            run_MCMC_if_MAP_fails(model,a_name,b_name)
+            df.loc[bin_mask, 'MAP_succeeded'] = "MCMC"
+
+
     # get and store parameters
     alpha, beta = model.get_node(a_name),model.get_node(b_name)
-    
-    # df.loc[bin_mask,].alpha_param = alpha.value.item()
-    # df.loc[bin_mask,].beta_param = beta.value.item()
-    
+
+    df.loc[bin_mask,"alpha_param"] = alpha.value.item()
+    df.loc[bin_mask,"beta_param"] = beta.value.item()
+
     # get and store probabilities
     # Record the probabilities of obtaining each R2 value (or smaller) in the bin afer scaling
     df.loc[bin_mask, 'cdf'] = scipy.stats.beta.cdf(df[bin_mask].R2_scaled_for_B,
@@ -213,6 +201,19 @@ def record_parameters_and_probabilities(df, model):
     df.loc[bin_mask, 'one_minus_cdf_BH'] = smm.multipletests(df[bin_mask].one_minus_cdf,
                                                          method='fdr_bh')[1]
 
+
+def run_MCMC_if_MAP_fails(model,a_name,b_name):
+    model_runner = mc.MCMC(model)
+    model.MCMC_run = model_runner
+
+    # re-initialize the alpha and beta starting values randomly
+    # to avoid non-allowed values that seem to slip in from the MAP.fit()
+    current_alpha,current_beta = model.get_node(a_name),model.get_node(b_name)
+    current_alpha.random()
+    current_beta.random()
+
+    # do the learning
+    model_runner.sample(iter=40000, burn=20000, thin=1)
 
 if __name__ == '__main__':
     run()
