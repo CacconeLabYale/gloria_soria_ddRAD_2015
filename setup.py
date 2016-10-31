@@ -22,7 +22,7 @@ def read(*names, **kwargs):
 
 setup(
     name="gloria_soria_ddRAD_2015",
-    version="1.0.1",
+    version="1.0.2",
     license="MIT",
     description="Code supporting the Gloria-Soria et al 2015 paper on tsetse population genomics using ddRAD seq.",
     long_description="%s\n%s" % (read("README.rst"), re.sub(":obj:`~?(.*?)`", r"``\1``", read("CHANGELOG.rst"))),
