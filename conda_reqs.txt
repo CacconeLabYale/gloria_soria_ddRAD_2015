@@ -1,0 +1,17 @@
+click
+ipython
+matplotlib
+munch
+seaborn
+ggplot
+numpy
+pandas
+PyYAML
+pytables
+scipy
+statsmodels
+ipdb
+pymc
+pybedtools
+tabulate
+scikits.bootstrap
