@@ -39,7 +39,7 @@ requirements:
     - scipy
     - statsmodels
     - ipdb
-    - pymc==2.3.5
+    - pymc
     - pybedtools
     - tabulate
     - scikits.bootstrap
@@ -62,7 +62,7 @@ requirements:
     - scipy
     - statsmodels
     - ipdb
-    - pymc==2.3.5
+    - pymc
     - pybedtools
     - tabulate
     - scikits.bootstrap
